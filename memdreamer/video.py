@@ -5,7 +5,7 @@ from .prompts import SYSTEM_VISION
 
 
 def fmt_ts(sec):
-    sec = int(round(float(sec)))
+    sec = int(float(sec) + 0.5)  # half-up; round() is half-to-even and labels 44.5/45.5/46.5 as 44/46/46
     h, r = divmod(sec, 3600)
     m, s = divmod(r, 60)
     return f"{h:02d}:{m:02d}:{s:02d}"
@@ -45,10 +45,10 @@ class Video:
         self.duration = n / fps
         cap.release()
 
-    def mosaics(self, start, end, grid=(3, 3), max_images=5, tile_width=426, max_fps=1.0, quality=85, max_pixels=1_000_000):
+    def mosaics(self, start, end, grid=(3, 3), max_images=5, tile_width=426, max_fps=1.0, quality=85, max_pixels=1_000_000, label_fn=None):
         """The service accepts <=5 images/request, so frames are packed into grid 'mosaics'.
-        Uniformly samples up to cols*rows*max_images frames in [start,end); every tile has its timestamp
-        (relative to `start`) burned into the top-left corner. Returns [{'b64': jpeg, 'times': [rel_sec,...]}]."""
+        Uniformly samples up to cols*rows*max_images frames in [start,end); every tile has its ABSOLUTE video
+        timestamp burned into the top-left corner. Returns [{'b64': jpeg, 'times': [abs_sec,...]}]."""
         end = min(end, self.duration)
         span = max(end - start, 0.1)
         cols, rows = int(grid[0]), int(grid[1])
@@ -62,7 +62,7 @@ class Video:
             cap.set(cv2.CAP_PROP_POS_MSEC, t * 1000.0)
             ok, img = cap.read()
             if ok:
-                tiles.append((t - start, img))
+                tiles.append((t, img))
         cap.release()
         if not tiles:
             return []
@@ -79,7 +79,7 @@ class Video:
             for j, (rt, img) in enumerate(group):
                 r, c = divmod(j, cols)
                 tile = cv2.resize(img, (tw, th), interpolation=cv2.INTER_AREA)
-                label = fmt_ts(rt)
+                label = label_fn(i + j, rt) if label_fn else fmt_ts(rt)
                 (lw, lh), base = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, fs, 1)
                 cv2.rectangle(tile, (0, 0), (lw + 10, lh + base + 8), (0, 0, 0), -1)   # solid backing => always legible
                 cv2.putText(tile, label, (4, lh + 4), cv2.FONT_HERSHEY_SIMPLEX, fs, (255, 255, 255), 1, cv2.LINE_AA)

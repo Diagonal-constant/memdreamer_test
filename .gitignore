@@ -9,5 +9,12 @@ wheels/
 # Virtual environments
 .venv
 **/memories/
-config.yaml 
+config.yaml
 **/test_video/**
+# Local data: videos, papers, OS junk, temp caches
+memdreamer/videos/
+memdreamer/paper/
+*.mp4
+*.pdf
+**/.DS_Store
+*.tmp

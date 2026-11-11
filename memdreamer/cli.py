@@ -11,7 +11,7 @@ def main():
     sub = ap.add_subparsers(dest="cmd", required=True)
     b = sub.add_parser("build", help="build hierarchical graph memory for one video")
     b.add_argument("--video", required=True); b.add_argument("--out", required=True); b.add_argument("--force", action="store_true")
-    a = sub.add_parser("ask", help="answer a multiple-choice question from a built memory")
+    a = sub.add_parser("ask", help="answer a question (multiple-choice if it lists (A)...(E) options, otherwise free text) from a built memory")
     a.add_argument("--memory", required=True); a.add_argument("--question", required=True, help="question text INCLUDING options, e.g. '... (A) x (B) y'")
     a.add_argument("--trace", action="store_true")
     e = sub.add_parser("eval", help="evaluate on a QA jsonl (video, question, answer[, type])")

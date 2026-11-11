@@ -47,7 +47,7 @@ class Memory:
             self._edge(e)
         for mid, g in self.sub.items():
             for e in g["entities"]:
-                self.nodes[e["id"]] = {"type": "Entity", "macro_id": mid, "time": [e.get("time_sec", 0)] * 2,
+                self.nodes[e["id"]] = {"type": "Entity", "macro_id": mid, "time": e.get("time_range") or [e.get("time_sec", 0)] * 2,
                                        "text": f'{e.get("name") or "unnamed"} ({e.get("entity_type","")}): {e.get("description","")}'}
             for e in g["events"]:
                 self.nodes[e["id"]] = {"type": "Event", "macro_id": mid, "time": e["time_range"],

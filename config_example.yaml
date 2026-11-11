@@ -18,24 +18,33 @@ reasoning_llm:
 embedding:                         # the service has NO /v1/embeddings -> local model
   backend: sentence-transformers
   model: Qwen/Qwen3-Embedding-0.6B
+  device: cpu                      # cpu = system RAM; "cuda" only if a GPU is free
   base_url: http://localhost:8001/v1   # only used if backend: openai
   api_key: EMPTY
   query_instruction: "Given a description of a video event, retrieve the entity, event or on-screen-text nodes that match it"
 
 perception:                        # memory construction (paper Sec 3.1), adapted to <=5 images/request
   window_sec: 600                  # tau: streaming-segmentation window
-  grid: [3, 3]                     # tiles per mosaic image (cols, rows) -> 9 frames per image
+  segment_grid: [3, 3]             # segmentation only needs coarse boundaries -> 45 frames per 10-min window
+  grid: [2, 2]                     # subgraph tiles per mosaic (cols, rows): 2x2 keeps tiles near native resolution
+  max_fps: 1                       # an action of length D is seen in >=2 frames only if spacing <= D/2; ~1-2 s actions => 1 fps
   max_images: 5                    # service limit => up to 45 frames per call
   tile_width: 426                  # mosaic is auto-shrunk to <= ~1 megapixel
-  chunk_sec: 90                    # a Macro Event is analysed in chunks of this length (45 frames => ~2 s spacing)
+  max_macro_sec: 60                # longer episodes are split so macros build in parallel (chunks inside one macro are serial)
+  chunk_sec: 20                    # = grid cells * max_images / max_fps = 4*5/1 -> every chunk at full 1 fps
   jpeg_quality: 85
   min_advance_sec: 30
   carry_last_episode: false
   workers: 6                       # keep <= ~8 per app (the 64-slot pool is shared by every key)
 
+tools:                             # agent tools that look back at the video
+  scan_fps: 2                      # per-frame yes/no; 2 fps resolves ~1 s actions, 2 'no' frames separate two events
+  scan_max_sec: 120
+  watch_max_sec: 30
+
 reasoning:                         # agentic retrieval (Sec 3.2)
   max_rounds: 12
   top_k: 10
-  max_obs_chars: 12000
+  max_obs_chars: 24000             # ~6K tokens per round (paper); 6K obs + prompt + 12K max_tokens < 32K
   temperature: 0.7
   max_tokens: 12000                # includes thinking tokens
