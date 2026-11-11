@@ -1,0 +1,41 @@
+# ---- ACI-LLM (OpenAI-compatible). Build/test on STAGING first (port 18766), then switch to production (18765). ----
+llm:
+  base_url:  http://ip:port/v1
+  api_key: qwk_test****            # qwk_test_* only works on staging, qwk_live_* only on production
+  model: model_id                  
+  temperature: 0.7
+  max_tokens: 6000                 # prompt + max_tokens must stay <= 32768
+  timeout: 600                     # guide: >=120s for non-streaming
+  max_retries: 5                   # only 429/500/503/504 + connection errors are retried
+  reasoning_effort: none           # none | low | medium | high  (thinking costs latency + tokens)
+  json_mode: false                 # keep false: segmentation returns a JSON *array*
+
+# Thinking helps the agent. Keep perception non-thinking (faster, cheaper).
+reasoning_llm:
+  reasoning_effort: medium
+  max_tokens: 12000
+
+embedding:                         # the service has NO /v1/embeddings -> local model
+  backend: sentence-transformers
+  model: Qwen/Qwen3-Embedding-0.6B
+  base_url: http://localhost:8001/v1   # only used if backend: openai
+  api_key: EMPTY
+  query_instruction: "Given a description of a video event, retrieve the entity, event or on-screen-text nodes that match it"
+
+perception:                        # memory construction (paper Sec 3.1), adapted to <=5 images/request
+  window_sec: 600                  # tau: streaming-segmentation window
+  grid: [3, 3]                     # tiles per mosaic image (cols, rows) -> 9 frames per image
+  max_images: 5                    # service limit => up to 45 frames per call
+  tile_width: 426                  # mosaic is auto-shrunk to <= ~1 megapixel
+  chunk_sec: 90                    # a Macro Event is analysed in chunks of this length (45 frames => ~2 s spacing)
+  jpeg_quality: 85
+  min_advance_sec: 30
+  carry_last_episode: false
+  workers: 6                       # keep <= ~8 per app (the 64-slot pool is shared by every key)
+
+reasoning:                         # agentic retrieval (Sec 3.2)
+  max_rounds: 12
+  top_k: 10
+  max_obs_chars: 12000
+  temperature: 0.7
+  max_tokens: 12000                # includes thinking tokens
