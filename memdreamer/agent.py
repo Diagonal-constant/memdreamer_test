@@ -4,7 +4,7 @@ from .prompts import AGENT_PROMPT
 
 NEED2TOOL = {"get_summary": "get_summary", "get_super_events": "get_super_events", "browse_macros": "browse_macros",
              "get_macro_details": "get_macro_details", "search_nodes": "search_nodes", "search_time": "search_by_time",
-             "get_relations": "get_relations"}
+             "get_relations": "get_relations", "scan": "scan", "watch": "watch"}
 
 
 def _letter(x):
@@ -17,7 +17,10 @@ class Agent:
         self.m, self.tools, self.llm, self.cfg = memory, tools, llm, cfg["reasoning"]
 
     def _initial(self):
-        return self.tools.get_summary() + "\n" + self.tools.get_super_events()
+        ctx = self.tools.get_summary() + "\n" + self.tools.get_super_events()
+        if len(self.m.macros) <= 20:  # short video: listing the macros up front saves the browse round(s)
+            ctx += "\n## All macro events\n" + self.tools.browse_macros(macro_ids=list(self.m.macros))
+        return ctx
 
     def run(self, question, verbose=False):
         T = self.cfg["max_rounds"]
@@ -25,6 +28,7 @@ class Agent:
         useful, history, seen, inspected = "", [], set(), set()
         obs, trace, ptoks = "(none yet: only the initial context is available)", [], []
         ans = None
+        mcq = bool(re.search(r"\(A\)", question))  # options listed -> letter answer; otherwise free text
         for r in range(1, T + 1):
             unexplored = sorted(seen - inspected)
             user = (f"# Question\n{question}\n\n# Initial context\n{self._initial()}\n\n"
@@ -38,7 +42,8 @@ class Agent:
             out = out if isinstance(out, dict) else {}
             ptoks.append(self.llm.last_prompt_tokens())
             useful = str(out.get("useful_info") or useful)
-            ans = _letter(out.get("answer"))
+            raw = out.get("answer")
+            ans = _letter(raw) if mcq else (str(raw).strip() if raw is not None and str(raw).strip().lower() not in ("", "null", "none") else None)
             step = {"round": r, "reasoning": out.get("reasoning"), "can_answer": out.get("can_answer"), "answer": ans, "need": out.get("information_need")}
             trace.append(step)
             if verbose:
@@ -58,4 +63,4 @@ class Agent:
             seen |= set(re.findall(r"macro_\d{4}", obs))
             if name == "get_macro_details":
                 inspected.add(str(args.get("macro_id")))
-        return {"answer": ans or "A", "answered": bool(ans), "rounds": len(trace), "prompt_tokens": ptoks, "trace": trace}
+        return {"answer": ans or ("A" if mcq else "(no answer)"), "answered": bool(ans), "rounds": len(trace), "prompt_tokens": ptoks, "trace": trace}

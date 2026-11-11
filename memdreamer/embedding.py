@@ -13,7 +13,7 @@ class Embedder:
             self.client = OpenAI(base_url=self.cfg["base_url"], api_key=self.cfg.get("api_key", "EMPTY"))
         else:
             from sentence_transformers import SentenceTransformer
-            self.model = SentenceTransformer(self.cfg["model"])
+            self.model = SentenceTransformer(self.cfg["model"], device=self.cfg.get("device", "cpu"))  # shared GPUs: keep the 0.6B embedder in RAM
 
     def encode(self, texts, is_query=False, batch=64):
         if is_query and self.instruction:  # Qwen3-Embedding query format
